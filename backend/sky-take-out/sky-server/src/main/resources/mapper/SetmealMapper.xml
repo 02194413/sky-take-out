@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.sky.mapper.SetmealMapper">
+    <update id="update">
+        update setmeal
+        <set>
+            <if test="name != null">
+                name = #{name},
+            </if>
+            <if test="categoryId != null">
+                category_id = #{categoryId},
+            </if>
+            <if test="price != null">
+                price = #{price},
+            </if>
+            <if test="status != null">
+                status = #{status},
+            </if>
+            <if test="description != null">
+                description = #{description},
+            </if>
+            <if test="image != null">
+                image = #{image},
+            </if>
+            <if test="updateTime != null">
+                update_time = #{updateTime},
+            </if>
+        </set>
+        where id = #{id}
+    </update>
+
+
+    <select id="pageQuery" resultType="com.sky.vo.SetmealVO">
+        select * from setmeal
+        <where>
+            <if test="name != null and name != ''">
+                and name like '%${name}%'
+            </if>
+            <if test="categoryId != null">
+                and category_id = #{categoryId}
+            </if>
+            <if test="status != null">
+                and status = #{status}
+            </if>
+        </where>
+        order by create_time desc,status desc
+    </select>
+    <resultMap id="setmealResultMap" type="com.sky.vo.SetmealVO">
+        <id property="id" column="id"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="name" column="name"/>
+        <result property="price" column="price"/>
+        <result property="status" column="status"/>
+        <result property="description" column="description"/>
+        <result property="image" column="image"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="categoryName" column="category_name"/>
+        <collection property="setmealDishes" ofType="com.sky.entity.SetmealDish">
+            <id property="id" column="sd_id"/>
+            <result property="setmealId" column="sd_setmeal_id"/>
+            <result property="dishId" column="sd_dish_id"/>
+            <result property="name" column="sd_name"/>
+            <result property="price" column="sd_price"/>
+            <result property="copies" column="copies"/>
+        </collection>
+    </resultMap>
+    <select id="getByIdWithSetmealDishes" resultMap="setmealResultMap">
+        select
+            s.*,
+            sd.id sd_id,
+            sd.setmeal_id sd_setmeal_id,
+            sd.dish_id sd_dish_id,
+            sd.name sd_name,
+            sd.price sd_price,
+            sd.copies,
+            c.name category_name
+        from setmeal s
+        left join setmeal_dish sd on s.id = sd.setmeal_id
+        left join category c on s.category_id = c.id
+        where s.id = #{id}
+    </select>
+    <select id="list" parameterType="Setmeal" resultType="Setmeal">
+        select * from setmeal
+        <where>
+            <if test="name != null">
+                and name like concat('%',#{name},'%')
+            </if>
+            <if test="categoryId != null">
+                and category_id = #{categoryId}
+            </if>
+            <if test="status != null">
+                and status = #{status}
+            </if>
+        </where>
+    </select>
+
+</mapper>
