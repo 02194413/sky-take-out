@@ -1,5 +1,4 @@
-server:
-  port: 8090
+
 
 spring:
   profiles:
@@ -74,3 +73,6 @@ sky:
     address: 广东省佛山市南海区阳光路阳光在线广场一楼N16号商铺
   baidu:
     ak: ${sky.baidu.ak}
+
+server:
+  port: {server.port}

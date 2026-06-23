@@ -6,3 +6,4 @@
 **/test/
 sky-server/src/main/resources/application-dev.yml
 .env
+frontedweb/nginx-1.20.2/logs/

@@ -23,8 +23,10 @@ import com.sky.vo.OrderPaymentVO;
 import com.sky.vo.OrderStatisticsVO;
 import com.sky.vo.OrderSubmitVO;
 import com.sky.vo.OrderVO;
+import com.sky.websocket.WebSocketServer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.aspectj.weaver.ast.Or;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -49,6 +51,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderDetailMapper orderDetailMapper;
     private final UserMapper userMapper;
     private final WeChatPayUtil weChatPayUtil;
+    private final WebSocketServer webSocketServer;
 
     @Value("${sky.shop.address}")
     private String shopAddress;
@@ -83,14 +86,19 @@ public class OrderServiceImpl implements OrderService {
         BeanUtils.copyProperties(ordersSubmitDTO, order);
         order.setUserId(userId);
         order.setOrderTime(LocalDateTime.now());
-        order.setStatus(Orders.PENDING_PAYMENT);
-        order.setPayStatus(Orders.UN_PAID);
+//        order.setStatus(Orders.PENDING_PAYMENT);
+//        order.setPayStatus(Orders.UN_PAID);
         order.setNumber(String.valueOf(System.currentTimeMillis()));
         order.setPhone(addressBook.getPhone());
         order.setConsignee(addressBook.getConsignee());
-
         order.setAddress(address);
         order.setUserName(user.getName());
+
+        //跳过支付流程，支付功能没有商户暂无法实现，先改成下单后直接到待派送状态
+        order.setStatus(Orders.TO_BE_CONFIRMED);
+        order.setPayStatus(Orders.PAID);
+        order.setCheckoutTime(LocalDateTime.now());
+
 
         orderMapper.insert(order);
 
@@ -109,6 +117,16 @@ public class OrderServiceImpl implements OrderService {
 
         //清空购物车
         shoppingCartMapper.delete(new LambdaQueryWrapper<ShoppingCart>().eq(ShoppingCart::getUserId, userId));
+
+        //跳过支付流程，暂时模拟有效订单已经生成
+        Map map=new HashMap();
+        map.put("type",1);//1表示来单提醒，2催单
+        map.put("orderId",order.getId());
+        map.put("content","订单号："+order.getNumber());
+
+        String json = JSON.toJSONString(map);
+        webSocketServer.sendToAllClient(json);
+
 
         //封装返回对象
         return OrderSubmitVO.builder().id(order.getId())
@@ -167,6 +185,15 @@ public class OrderServiceImpl implements OrderService {
                 .build();
 
         orderMapper.update(orders);
+
+        //通过websocket推送消息
+        Map map=new HashMap();
+        map.put("type",1);//1表示来单提醒，2催单
+        map.put("orderId",ordersDB.getId());
+        map.put("content","订单号："+outTradeNo);
+
+        String json = JSON.toJSONString(map);
+        webSocketServer.sendToAllClient(json);
     }
 
     @Override
@@ -398,6 +425,28 @@ public class OrderServiceImpl implements OrderService {
         orders.setDeliveryTime(LocalDateTime.now());
 
         orderMapper.update(orders);
+    }
+
+    /*
+    * 客户催单
+    * */
+    @Override
+    public void reminder(Long id) {
+        Orders ordersDB = orderMapper.selectById(id);
+
+        // 校验订单是否存在，并且状态为4
+        if (ordersDB == null) {
+            throw new OrderBusinessException(MessageConstant.ORDER_STATUS_ERROR);
+        }
+
+        //催单推送消息
+        Map map=new HashMap();
+        map.put("type","2");
+        map.put("orderId",id);
+        map.put("content","订单号："+ordersDB.getNumber());
+        webSocketServer.sendToAllClient(JSON.toJSONString(map));
+
+
     }
 
     private List<OrderVO> getOrderVOList(Page<Orders> page) {
